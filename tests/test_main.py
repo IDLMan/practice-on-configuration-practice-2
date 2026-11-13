@@ -1,4 +1,4 @@
-"""Stage one command-line tests."""
+"""Stage two command-line tests."""
 
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
@@ -11,21 +11,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MainTests(TestCase):
-    """Check observable console behavior."""
+    """Check user-visible direct dependency reports."""
 
-    def test_prints_all_settings(self) -> None:
-        """Stage one prints four key-value settings."""
+    def test_prints_direct_dependencies(self) -> None:
+        """The application displays only the first layer."""
         buffer = StringIO()
         with redirect_stdout(buffer):
             result = main(["--config", str(ROOT / "config/test.ini")])
         self.assertEqual(result, 0)
-        self.assertIn("package: A", buffer.getvalue())
-        self.assertIn("test_mode: true", buffer.getvalue())
-        self.assertIn("output:", buffer.getvalue())
-        self.assertIn("repository:", buffer.getvalue())
+        self.assertIn("- B", buffer.getvalue())
+        self.assertIn("- C", buffer.getvalue())
+        self.assertNotIn("- D", buffer.getvalue())
 
     def test_bad_config_returns_error(self) -> None:
-        """User errors produce a nonzero exit result."""
+        """Return a nonzero code for configuration errors."""
         buffer = StringIO()
         with redirect_stderr(buffer):
             result = main(["--config", "does-not-exist.ini"])
