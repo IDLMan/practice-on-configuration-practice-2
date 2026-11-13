@@ -10,6 +10,7 @@ BOX_HEIGHT = 48
 BOX_PAD = 24
 COLUMN_GAP = 110
 ROW_GAP = 34
+BACK_EDGE_GAP = 80
 MARGIN = 45
 FONT_SIZE = 14
 CHAR_WIDTH = 8
@@ -64,25 +65,36 @@ def svg_element(tag: str, parent: ET.Element,
     """Append an SVG element in the proper namespace."""
     return ET.SubElement(parent, f"{{{SVG_NS}}}{tag}", attrs)
 
-
 def draw_edges(canvas: ET.Element, graph: DependencyGraph,
                points: dict[str, tuple[int, int]], width: int) -> None:
-    """Draw directed graph arrows before nodes to keep labels legible."""
+    """Draw graph arrows, routing back edges below the nodes."""
     for source, target in graph.edges():
         x1, y1 = points[source]
         x2, y2 = points[target]
-        start_x = x1 + width
-        end_x = x2
-        direction = 1 if end_x > start_x else -1
-        offset = 35 * direction
-        path = (f"M {start_x} {y1 + BOX_HEIGHT // 2} "
+
+        if x2 <= x1:
+            start_x = x1 + width // 2
+            end_x = x2 + width // 2
+            bend_y = max(y1, y2) + BOX_HEIGHT + BACK_EDGE_GAP
+            path = (
+                f"M {start_x} {y1 + BOX_HEIGHT} "
+                f"C {start_x} {bend_y}, {end_x} {bend_y}, "
+                f"{end_x} {y2 + BOX_HEIGHT}"
+            )
+        else:
+            start_x = x1 + width
+            end_x = x2
+            offset = 35
+            path = (
+                f"M {start_x} {y1 + BOX_HEIGHT // 2} "
                 f"C {start_x + offset} {y1 + BOX_HEIGHT // 2}, "
                 f"{end_x - offset} {y2 + BOX_HEIGHT // 2}, "
-                f"{end_x} {y2 + BOX_HEIGHT // 2}")
+                f"{end_x} {y2 + BOX_HEIGHT // 2}"
+            )
+
         arrow = svg_element("path", canvas, d=path, fill="none",
                             stroke="#64748b", **{"stroke-width": "2"})
         arrow.set("marker-end", "url(#arrow)")
-
 
 def draw_nodes(canvas: ET.Element,
                points: dict[str, tuple[int, int]], width: int) -> None:
@@ -104,7 +116,8 @@ def svg(graph: DependencyGraph) -> str:
                     * CHAR_WIDTH + BOX_PAD * 2)
     points = positions(graph, box_width)
     width = max(x for x, _ in points.values()) + box_width + MARGIN
-    height = max(y for _, y in points.values()) + BOX_HEIGHT + MARGIN
+    height = (max(y for _, y in points.values()) + BOX_HEIGHT
+          + BACK_EDGE_GAP + MARGIN)
     ET.register_namespace("", SVG_NS)
     canvas = ET.Element(f"{{{SVG_NS}}}svg", {
         "width": str(width), "height": str(height),
