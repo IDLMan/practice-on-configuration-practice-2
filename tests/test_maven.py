@@ -77,6 +77,22 @@ class MavenTests(TestCase):
             deps = repo.dependencies("demo:app:1.0")
         self.assertEqual(deps, ("demo:core:1.0",))
 
+    def test_parent_chain_builds_graph(self) -> None:
+        """A Maven-style HTTP repository supplies transitive edges."""
+        from src.graph import build_graph
+        repo = MavenRepository("https://repo.example/maven2")
+        pom_root = ROOT / "fixtures/maven_repo"
+
+        def fetch(request, timeout):
+            """Return a local POM while preserving HTTP URL semantics."""
+            path = request.full_url.split("/maven2/")[-1]
+            return BytesIO((pom_root / path).read_bytes())
+
+        with patch("src.maven.urlopen", side_effect=fetch):
+            graph = build_graph(repo, "demo:app:1.0")
+        self.assertEqual(len(graph.adjacent), 3)
+        self.assertIn(("demo:app:1.0", "demo:core:1.0"), graph.edges())
+
     @staticmethod
     def sample_pom() -> bytes:
         """Small POM with a project property and default XML namespace."""

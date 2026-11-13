@@ -6,29 +6,28 @@ import sys
 from pathlib import Path
 
 from .config import load_config
+from .graph import build_graph
 from .sources import open_source
 
 
 def parse_arguments(argv: Sequence[str] | None = None) -> Path:
-    """Select the INI containing all user settings."""
+    """Accept the required INI file path."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True, type=Path)
     return parser.parse_args(argv).config
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Show direct dependencies of the selected package (stage two)."""
+    """Print the full transitive dependency graph, including cycles."""
     try:
         settings = load_config(parse_arguments(argv))
-        deps = open_source(settings).dependencies(settings.package)
+        graph = build_graph(open_source(settings), settings.package)
     except ValueError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2
-    print(f"Direct dependencies of {settings.package}:")
-    for name in deps:
-        print(f"- {name}")
-    if not deps:
-        print("(none)")
+    print(f"Dependency graph of {settings.package}:")
+    for node, children in sorted(graph.adjacent.items()):
+        print(f"{node} -> {', '.join(children) if children else '(none)'}")
     return 0
 
 

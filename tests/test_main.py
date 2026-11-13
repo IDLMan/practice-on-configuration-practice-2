@@ -1,4 +1,4 @@
-"""Stage two command-line tests."""
+"""Stage three CLI tests."""
 
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
@@ -11,22 +11,28 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MainTests(TestCase):
-    """Check user-visible direct dependency reports."""
+    """Check the full graph report and user errors."""
 
-    def test_prints_direct_dependencies(self) -> None:
-        """The application displays only the first layer."""
+    def test_prints_transitive_dependencies(self) -> None:
+        """The output includes the second-level edge B-D."""
         buffer = StringIO()
         with redirect_stdout(buffer):
-            result = main(["--config", str(ROOT / "config/test.ini")])
-        self.assertEqual(result, 0)
-        self.assertIn("- B", buffer.getvalue())
-        self.assertIn("- C", buffer.getvalue())
-        self.assertNotIn("- D", buffer.getvalue())
+            code = main(["--config", str(ROOT / "config/test.ini")])
+        self.assertEqual(code, 0)
+        self.assertIn("B -> D", buffer.getvalue())
+
+    def test_prints_cycle(self) -> None:
+        """The cycle fixture must display its closing edge."""
+        buffer = StringIO()
+        with redirect_stdout(buffer):
+            code = main(["--config", str(ROOT / "config/cycle.ini")])
+        self.assertEqual(code, 0)
+        self.assertIn("C -> A", buffer.getvalue())
 
     def test_bad_config_returns_error(self) -> None:
-        """Return a nonzero code for configuration errors."""
+        """Error status must remain stable across stages."""
         buffer = StringIO()
         with redirect_stderr(buffer):
-            result = main(["--config", "does-not-exist.ini"])
-        self.assertEqual(result, 2)
+            code = main(["--config", "missing.ini"])
+        self.assertEqual(code, 2)
         self.assertIn("Error:", buffer.getvalue())
