@@ -2,7 +2,7 @@
 
 from collections import deque
 from pathlib import Path
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as element_tree
 
 from .graph import DependencyGraph
 
@@ -60,12 +60,12 @@ def positions(graph: DependencyGraph, box_width: int
     return points
 
 
-def svg_element(tag: str, parent: ET.Element,
-                **attrs: str) -> ET.Element:
+def svg_element(tag: str, parent: element_tree.Element,
+                **attrs: str) -> element_tree.Element:
     """Append an SVG element in the proper namespace."""
-    return ET.SubElement(parent, f"{{{SVG_NS}}}{tag}", attrs)
+    return element_tree.SubElement(parent, f"{{{SVG_NS}}}{tag}", attrs)
 
-def draw_edges(canvas: ET.Element, graph: DependencyGraph,
+def draw_edges(canvas: element_tree.Element, graph: DependencyGraph,
                points: dict[str, tuple[int, int]], width: int) -> None:
     """Draw graph arrows, routing back edges below the nodes."""
     for source, target in graph.edges():
@@ -96,7 +96,7 @@ def draw_edges(canvas: ET.Element, graph: DependencyGraph,
                             stroke="#64748b", **{"stroke-width": "2"})
         arrow.set("marker-end", "url(#arrow)")
 
-def draw_nodes(canvas: ET.Element,
+def draw_nodes(canvas: element_tree.Element,
                points: dict[str, tuple[int, int]], width: int) -> None:
     """Draw accessible labeled rectangles for every package."""
     for node, (x, y) in sorted(points.items()):
@@ -118,8 +118,8 @@ def svg(graph: DependencyGraph) -> str:
     width = max(x for x, _ in points.values()) + box_width + MARGIN
     height = (max(y for _, y in points.values()) + BOX_HEIGHT
           + BACK_EDGE_GAP + MARGIN)
-    ET.register_namespace("", SVG_NS)
-    canvas = ET.Element(f"{{{SVG_NS}}}svg", {
+    element_tree.register_namespace("", SVG_NS)
+    canvas = element_tree.Element(f"{{{SVG_NS}}}svg", {
         "width": str(width), "height": str(height),
         "viewBox": f"0 0 {width} {height}",
     })
@@ -132,7 +132,11 @@ def svg(graph: DependencyGraph) -> str:
     svg_element("path", marker, d="M0,0 L0,6 L9,3 z", fill="#64748b")
     draw_edges(canvas, graph, points, box_width)
     draw_nodes(canvas, points, box_width)
-    return ET.tostring(canvas, encoding="unicode", xml_declaration=True)
+    return element_tree.tostring(
+        canvas,
+        encoding="unicode",
+        xml_declaration=True,
+    )
 
 
 def save_visualization(graph: DependencyGraph,

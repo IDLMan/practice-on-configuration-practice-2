@@ -3,7 +3,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as element_tree
 
 from src.graph import build_graph
 from src.test_repo import TestRepository
@@ -38,13 +38,13 @@ class VisualizationTests(TestCase):
     def test_svg_parses(self) -> None:
         """Output is valid standalone SVG XML."""
         content = svg(sample())
-        root = ET.fromstring(content)
+        root = element_tree.fromstring(content)
         self.assertTrue(root.tag.endswith("svg"))
 
     def test_svg_nodes(self) -> None:
         """SVG includes one labeled rectangle for each package."""
         graph = sample()
-        root = ET.fromstring(svg(graph))
+        root = element_tree.fromstring(svg(graph))
         rects = root.findall("{*}rect")
         labels = root.findall("{*}text")
         self.assertEqual(len(rects), len(graph.adjacent))
@@ -54,7 +54,7 @@ class VisualizationTests(TestCase):
     def test_svg_arrows(self) -> None:
         """SVG arrows correspond to graph edges."""
         graph = sample()
-        root = ET.fromstring(svg(graph))
+        root = element_tree.fromstring(svg(graph))
         paths = root.findall("{*}path")
         self.assertEqual(len(paths), len(graph.edges()))
 
@@ -76,7 +76,7 @@ class VisualizationTests(TestCase):
             self.assertEqual(source.suffix, ".puml")
             self.assertEqual(picture.suffix, ".svg")
             self.assertIn("@startuml", source.read_text(encoding="utf-8"))
-            ET.parse(picture)
+            element_tree.parse(picture)
 
     def test_three_distinct_packages(self) -> None:
         """Demonstration INIs provide three distinct package roots."""

@@ -4,7 +4,7 @@ import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as element_tree
 
 MISSING_VAR = re.compile(r"\$\{([^}]+)\}")
 IGNORED_SCOPES = {"test", "provided", "system", "import"}
@@ -12,20 +12,23 @@ POM_MAX_BYTES = 2_000_000
 REQUEST_TIMEOUT = 12
 
 
-def child(element: ET.Element | None, name: str) -> ET.Element | None:
+def child(
+    element: element_tree.Element | None,
+    name: str,
+) -> element_tree.Element | None:
     """Find a direct XML child independently of the POM namespace."""
     if element is None:
         return None
     return element.find(f"{{*}}{name}")
 
 
-def value(element: ET.Element | None, name: str) -> str:
+def value(element: element_tree.Element | None, name: str) -> str:
     """Read text from one XML child or return an empty value."""
     node = child(element, name)
     return "" if node is None else (node.text or "").strip()
 
 
-def properties(root: ET.Element, package: str) -> dict[str, str]:
+def properties(root: element_tree.Element, package: str) -> dict[str, str]:
     """Collect common project, parent and local version properties."""
     group, artifact, version = package.split(":")
     parent = child(root, "parent")
@@ -61,7 +64,7 @@ def resolve(text: str, values: dict[str, str]) -> str:
     return text
 
 
-def managed_versions(root: ET.Element, vars: dict[str, str]
+def managed_versions(root: element_tree.Element, vars: dict[str, str]
                      ) -> dict[tuple[str, str], str]:
     """Read versions declared in this POM's dependencyManagement."""
     block = child(child(root, "dependencyManagement"), "dependencies")
@@ -82,8 +85,8 @@ def parse_pom(xml: bytes, package: str,
               ) -> tuple[str, ...]:
     """Parse a POM's direct runtime dependencies and declared versions."""
     try:
-        root = ET.fromstring(xml)
-    except ET.ParseError as error:
+        root = element_tree.fromstring(xml)
+    except element_tree.ParseError as error:
         raise ValueError(f"Invalid Maven POM XML: {error}") from error
     vars = {**(inherited_vars or {}), **properties(root, package)}
     managed = {**(inherited_managed or {}),
@@ -99,7 +102,7 @@ def parse_pom(xml: bytes, package: str,
     return tuple(result)
 
 
-def parse_dependency(dep: ET.Element, vars: dict[str, str],
+def parse_dependency(dep: element_tree.Element, vars: dict[str, str],
                      managed: dict[tuple[str, str], str]) -> str:
     """Return a complete package coordinate or skip an inactive edge."""
     if value(dep, "scope") in IGNORED_SCOPES:
@@ -141,8 +144,8 @@ class MavenRepository:
                                    dict[tuple[str, str], str]]:
         """Resolve dependencyManagement through parent POMs."""
         try:
-            root = ET.fromstring(xml)
-        except ET.ParseError as error:
+            root = element_tree.fromstring(xml)
+        except element_tree.ParseError as error:
             raise ValueError(f"Invalid Maven POM XML: {error}") from error
         parent = child(root, "parent")
         if parent is None:
@@ -157,9 +160,12 @@ class MavenRepository:
             raise ValueError(f"Cycle in Maven POM parent chain: {name}")
         parent_xml = self._download(name)
         vars, managed = self._parent_context(parent_xml, seen | {name})
-        vars = {**vars, **properties(ET.fromstring(parent_xml), name)}
-        managed = {**managed,
-                   **managed_versions(ET.fromstring(parent_xml), vars)}
+        vars = {**vars, **properties(element_tree.fromstring(parent_xml), name)}
+        parent_root = element_tree.fromstring(parent_xml)
+        managed = {
+            **managed,
+            **managed_versions(parent_root, vars),
+        }
         return vars, managed
 
     def _download(self, name: str) -> bytes:

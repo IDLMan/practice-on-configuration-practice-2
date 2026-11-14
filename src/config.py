@@ -1,6 +1,6 @@
 """Strict INI-only user configuration for dependency visualization."""
 
-from configparser import ConfigParser, Error as IniError
+import configparser
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -23,11 +23,11 @@ class Settings:
 
 def read_ini(path: Path) -> dict[str, str]:
     """Read an INI file without accepting duplicate keys."""
-    parser = ConfigParser(interpolation=None)
+    parser = configparser.ConfigParser(interpolation=None)
     try:
         with path.open(encoding="utf-8") as stream:
             parser.read_file(stream)
-    except (OSError, UnicodeError, IniError) as error:
+    except (OSError, UnicodeError, configparser.Error) as error:
         raise ValueError(f"Cannot read INI: {error}") from error
     if not parser.has_section("settings"):
         raise ValueError("INI must contain [settings]")
